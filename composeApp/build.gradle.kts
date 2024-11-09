@@ -38,6 +38,7 @@ kotlin {
         commonMain.dependencies {
             implementation(compose.runtime)
             implementation(compose.foundation)
+
             implementation(compose.material3)
             implementation(compose.ui)
             implementation(compose.components.resources)
@@ -46,6 +47,7 @@ kotlin {
             implementation(libs.navigator)
             implementation(libs.navigator.screen.model)
             implementation(libs.navigator.transitions)
+            implementation(libs.navigator.tab)
             implementation(libs.navigator.koin)
             implementation(libs.koin.core)
 
@@ -91,3 +93,6 @@ android {
 }
 
 task("testClasses") {}
+dependencies {
+    implementation(libs.androidx.ui.text.google.fonts)
+}

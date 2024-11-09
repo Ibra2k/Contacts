@@ -1,7 +1,6 @@
-package org.example.project.presentation.screen.home
+package org.example.project.presentation.screen.recents
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,22 +14,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Card
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -42,54 +34,60 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.getScreenModel
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.Navigator
-import cafe.adriel.voyager.navigator.currentOrThrow
-
-import org.example.project.domain.Contact
+import cafe.adriel.voyager.navigator.tab.Tab
+import cafe.adriel.voyager.navigator.tab.TabOptions
+import org.example.project.domain.RecentCall
 import org.example.project.domain.RequestState
 import org.example.project.getLexendFont
 import org.example.project.presentation.component.ErrorScreen
 import org.example.project.presentation.component.LoadingScreen
-import org.example.project.presentation.screen.contact.ContactScreen
+import org.example.project.presentation.screen.home.CallButton
+import java.text.SimpleDateFormat
+import java.util.Date
 
-object HomeScreen: Screen {
+object RecentTab : Tab{
+    override val options: TabOptions
+
+        @Composable
+        get() {
+            val title = "Recent"
+            val icon = rememberVectorPainter(Icons.Default.Notifications)
+
+            return remember {
+                TabOptions(
+                    index = 2u,
+                    title = title,
+                    icon = icon
+                )
+            }
+
+        }
+
     @Composable
     override fun Content() {
+        val viewModel = getScreenModel<RecentCallsViewModel>()
+        val recentCalls by viewModel.recentCalls
 
-        val navigator = LocalNavigator.currentOrThrow
-        val viewModel = getScreenModel<HomeViewModel>()
-        val contacts by viewModel.contacts
-
-        MainScreen(navigator, viewModel, contacts)
-
+        Recent(viewModel, recentCalls)
     }
-}
 
+}
 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen(navigator: Navigator, viewModel: HomeViewModel, contacts: RequestState<List<Contact>>) {
+fun Recent(viewModel: RecentCallsViewModel, recentCalls: RequestState<List<RecentCall>>) {
+
 
     Scaffold(
-        topBar = { TopAppBar(title = { TopBar(viewModel, "Contacts") } ) },
-
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { navigator.push(ContactScreen(navigator)) },
-                modifier = Modifier.padding(bottom = 68.dp)
-            ){ Icon(
-                Icons.Default.Person,
-                "Add Contact"
-            )
-            } }
+        topBar = { TopAppBar(title = { TopRecentBar(viewModel = viewModel, text = "Recents") }) },
     ) { padding ->
+
         Column(modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
@@ -98,87 +96,64 @@ fun MainScreen(navigator: Navigator, viewModel: HomeViewModel, contacts: Request
                 bottom = padding.calculateBottomPadding()
             )) {
 
-            SearchBar()
-
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(20.dp))
             HorizontalDivider()
 
-            contacts.DisplayResult(
-
-                onError = { ErrorScreen() },
+            recentCalls.DisplayResult(
                 onLoading = { LoadingScreen() },
+                onError = { ErrorScreen() },
                 onSuccess = {
-
                     HorizontalDivider()
                     LazyColumn(modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
                         items(
                             items = it,
-                            key = { contact -> contact._id.toHexString() }
-                        ){ contact ->
-                            EachContact(
-                                contact,
-                                viewModel,
-                                navigator
-                            ) { navigator.push(ContactScreen(navigator, contact)) }
+                            key = { recentCall -> recentCall._id.toHexString() }
+                        ){ eachRecent ->
+                            EachRecentCall(
+                                Modifier.fillMaxWidth()
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .padding(vertical = 16.dp),
+                                eachRecent,
+                                viewModel
+                            )
                             HorizontalDivider()
                         }
 
                     }
                 }
-
             )
+
         }
-
     }
-
 }
 
 @Composable
-fun SearchBar() {
-    var search by remember { mutableStateOf("") }
-
-    OutlinedTextField(
-        value = search,
-        onValueChange = { search = it },
-        trailingIcon = { Icon(Icons.Default.Search, "Search") },
-        label = { Text("Search") },
-        shape = RoundedCornerShape(16.dp),
-        modifier = Modifier.fillMaxWidth()
-    )
-}
-
-
-@Composable
-fun EachContact(
-    contact: Contact,
-    viewModel: HomeViewModel,
-    navigator: Navigator,
-    contactClicked: ()->Unit) {
+fun EachRecentCall(
+    modifier: Modifier = Modifier,
+    eachRecentCall: RecentCall,
+    viewModel: RecentCallsViewModel
+) {
 
     var isChecked by remember { mutableStateOf(false) }
 
-
-
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .padding(vertical = 8.dp)
-            .clickable { contactClicked() },
+        modifier = modifier,
+        horizontalArrangement = Arrangement.Start,
         verticalAlignment = Alignment.CenterVertically
-    ){
+    ) {
+
         Checkbox(
             checked = isChecked,
             onCheckedChange = {
                 isChecked = it
-                viewModel.updateContact(it, contact)
+                viewModel.updateContact(it, eachRecentCall)
             }
         )
 
         Spacer(modifier = Modifier.width(8.dp))
 
         Text(
-            contact.fullName,
+            eachRecentCall.phoneNumber,
             fontSize = 20.sp,
             fontWeight = FontWeight.Medium,
             fontFamily = getLexendFont()
@@ -190,13 +165,13 @@ fun EachContact(
             }
         }
 
-    }
 
+    }
 }
 
 
 @Composable
-fun TopBar(viewModel: HomeViewModel? = null, text: String) {
+fun TopRecentBar(text: String, viewModel: RecentCallsViewModel) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -210,7 +185,7 @@ fun TopBar(viewModel: HomeViewModel? = null, text: String) {
         )
 
         IconButton(onClick = {
-            viewModel?.deleteContact(viewModel.listOfCheckedContacts)
+            viewModel.deleteRecent(viewModel.listOfCheckedContacts)
         }){
             Icon(
                 Icons.Default.Delete,
@@ -220,21 +195,8 @@ fun TopBar(viewModel: HomeViewModel? = null, text: String) {
     }
 }
 
-@Composable
-fun CallButton(modifier: Modifier = Modifier, callNumber: () -> Unit) {
-    Card(
-        modifier = modifier,
-        shape = CircleShape
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.primary),
-            contentAlignment = Alignment.Center
-        ) {
-            IconButton(onClick = {callNumber}){
-                Icon(Icons.Default.Call, "Call")
-            }
-        }
-    }
+@SuppressLint("SimpleDateFormat")
+fun formatTime(date: Date): String{
+    val formatter = SimpleDateFormat("HH:mm")
+    return formatter.format(date)
 }

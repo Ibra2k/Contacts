@@ -29,6 +29,7 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.koin.getScreenModel
 import cafe.adriel.voyager.navigator.Navigator
 import org.example.project.domain.Contact
+import org.example.project.getLexendFont
 
 const val FNAME = ""
 const val NNAME = ""
@@ -51,16 +52,17 @@ class ContactScreen(val navigator: Navigator, val contact: Contact? = null) : Sc
 
         var fName by remember { mutableStateOf(contact?.fullName ?: FNAME) }
         var nName by remember { mutableStateOf(contact?.nickName ?: NNAME) }
-        var number by remember { mutableStateOf(contact?.nickName ?: NUMBER) }
-        var placeFrom by remember { mutableStateOf(contact?.nickName ?: PLACE) }
+        var number by remember { mutableStateOf(contact?.phoneNumber ?: NUMBER) }
+        var placeFrom by remember { mutableStateOf(contact?.business ?: PLACE) }
 
 
 
         Scaffold(
             topBar = { TopAppBar(title = { Text(
                 "New Contact",
-                fontSize = 26.sp,
-                fontWeight = FontWeight.Bold
+                fontSize = 32.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = getLexendFont()
             )}
                 , navigationIcon = { IconButton(onClick = {navigator.pop()})
                 { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Go Back")}
@@ -69,31 +71,30 @@ class ContactScreen(val navigator: Navigator, val contact: Contact? = null) : Sc
 
                 //Handles if Contact was click or Create Contact clicked
 
-                if (fName.isNotEmpty()) {
-                    if (contact != null) {
-                        viewModel.updateContact(
-                            Contact().apply {
-                                _id = contact._id
-                                fullName = fName
-                                nickName = nName
-                                phoneNumber = number
-                                business = placeFrom
-                            }
-                        )
-                    } else {
-                        viewModel.addContact(
-                            Contact().apply {
-                                fullName = fName
-                                nickName = nName
-                                phoneNumber = number
-                                business = placeFrom
-                            }
-                        )
-                    }
-                    navigator.pop()
-
+                if (contact != null) {
+                    // Ensure all fields are mapped correctly
+                    viewModel.updateContact(
+                        Contact().apply {
+                            _id = contact._id   // _id should be non-null
+                            fullName = fName
+                            nickName = nName
+                            phoneNumber = number
+                            business = placeFrom
+                        }
+                    )
+                } else {
+                    viewModel.addContact(
+                        Contact().apply {
+                            fullName = fName
+                            nickName = nName
+                            phoneNumber = number
+                            business = placeFrom
+                        }
+                    )
                 }
-            }
+                navigator.pop()
+            },
+                modifier = Modifier.padding(bottom = 68.dp)
 
             ){
                 Icon(Icons.Default.Check, "Update/Create")

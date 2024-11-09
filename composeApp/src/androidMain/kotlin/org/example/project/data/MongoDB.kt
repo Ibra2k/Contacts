@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import org.example.project.domain.Contact
+import org.example.project.domain.RecentCall
 import org.example.project.domain.RequestState
 
 class MongoDB {
@@ -18,9 +19,19 @@ class MongoDB {
 
     private fun realmConfiguration() {
         val config = RealmConfiguration.create(
-            schema = setOf(Contact::class)
+            schema = setOf(Contact::class, RecentCall::class)
         )
         realm = Realm.open(config)
+    }
+
+
+    fun readRecentCalls(): Flow<RequestState<List<RecentCall>>> {
+        return realm?.query<RecentCall>()
+            ?.asFlow()
+            ?.map { result ->
+                RequestState.Success(data = result.list)
+            } ?:
+            flow { RequestState.Error("Realm not available") }
     }
 
     fun readContacts(): Flow<RequestState<List<Contact>>> {
@@ -32,6 +43,10 @@ class MongoDB {
             flow { RequestState.Error("Realm is not available") }
     }
 
+    suspend fun insertRecent(recent: RecentCall){
+        realm?.write { copyToRealm(recent) }
+    }
+
     suspend fun insertContact(contact: Contact){
         realm?.write { copyToRealm(contact) }
     }
@@ -41,12 +56,11 @@ class MongoDB {
             val queryContact = query<Contact>("_id == $0", contact._id).first().find()
             queryContact?.let {
                 findLatest(it)?.let { currContact ->
-                    currContact.apply {
-                        fullName = contact.fullName
-                        nickName = contact.nickName
-                        business = contact.business
-                        phoneNumber = contact.phoneNumber
-                    }
+
+                    currContact.fullName = contact.fullName
+                    currContact.nickName = contact.nickName
+                    currContact.business = contact.business
+                    currContact.phoneNumber = contact.phoneNumber
                 }
             }
         }
@@ -55,6 +69,13 @@ class MongoDB {
     suspend fun deleteContact(contact: List<Contact>){
         realm?.write {
             val contactToDelete = query<Contact>("_id == $0", contact.map { it._id }).find()
+            delete(contactToDelete)
+        }
+    }
+
+    suspend fun deleteRecent(contact: List<RecentCall>){
+        realm?.write {
+            val contactToDelete = query<RecentCall>("_id == $0", contact.map { it._id }).find()
             delete(contactToDelete)
         }
     }
